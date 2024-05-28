@@ -4,7 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Iterable
 
 import torch
 import torch.nn as nn
@@ -92,7 +92,7 @@ class Transformer(nn.Module):
         self.config = config
 
         self.tok_embeddings = nn.Embedding(config.vocab_size, config.dim)
-        self.layers = nn.ModuleList(TransformerBlock(config) for _ in range(config.n_layer))
+        self.layers:Iterable[TransformerBlock] = nn.ModuleList(TransformerBlock(config) for _ in range(config.n_layer))
         self.norm = RMSNorm(config.dim, eps=config.norm_eps)
         self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
 
@@ -241,7 +241,9 @@ def precompute_freqs_cis(
 
 
 def apply_rotary_emb(x: Tensor, freqs_cis: Tensor) -> Tensor:
+    # [B, s, nh, nd/2, 2]
     xshaped = x.float().reshape(*x.shape[:-1], -1, 2)
+    # [1, s, 1,  nd/2, 2]
     freqs_cis = freqs_cis.view(1, xshaped.size(1), 1, xshaped.size(3), 2)
     x_out2 = torch.stack(
         [
